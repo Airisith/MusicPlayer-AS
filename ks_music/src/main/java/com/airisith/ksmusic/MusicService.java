@@ -142,9 +142,9 @@ public class MusicService extends Service {
 
     /**
      * 将拿到的时间转换成00:00-00:00的形式用于显示
-     *
-     * @param
-     * @return
+     * @param currentTime 当前时间（ms）
+     * @param totalTime 总时间(ms)
+     * @return 时间的String形式,如[“00:00”, “00:00”]
      */
     private static String[] formatTime(int currentTime, int totalTime) {
         String current_mStr, current_sStr, total_mStr, total_sStr;
@@ -247,7 +247,13 @@ public class MusicService extends Service {
         return super.onStartCommand(intent, flags, startId);
     }
 
-    ;
+    /**
+     * 设置歌曲地址
+     * @param url ：歌曲路径
+     */
+    private void setPath(String url){
+        this.path = url;
+    }
 
     /**
      * 播放音乐
