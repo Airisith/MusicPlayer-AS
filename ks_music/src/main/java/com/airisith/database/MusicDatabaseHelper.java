@@ -7,12 +7,12 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 /**
  * 操作数据库
- * @author jacp
  *
+ * @author jacp
  */
 public class MusicDatabaseHelper extends SQLiteOpenHelper {
-	private static final String DATABASE_NAME = "musicinfo.db";
-	private static final int DATABASE_VERSION = 1;
+    private static final String DATABASE_NAME = "musicinfo.db";
+    private static final int DATABASE_VERSION = 1;
 
     public MusicDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);

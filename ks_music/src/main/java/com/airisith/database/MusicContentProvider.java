@@ -1,7 +1,5 @@
 package com.airisith.database;
 
-import java.util.HashMap;
-
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -13,20 +11,33 @@ import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
 
+import java.util.HashMap;
+
 
 /**
  * 操作数据库Person表的ContentProvider
- * @author
  *
+ * @author
  */
 public class MusicContentProvider extends ContentProvider {
 
-    private static HashMap<String, String> sPersonsProjectionMap;
-
     private static final int TABLE = 1;
     private static final int MUSIC_ID = 2;
-
     private static final UriMatcher sUriMatcher;
+    private static HashMap<String, String> sPersonsProjectionMap;
+
+    static {
+        sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+        // 这个地方的musics要和MusicColumns.CONTENT_URI中最后面的一个Segment一致
+        sUriMatcher.addURI(MusicProvider.AUTHORITY, "musics", TABLE);
+        sUriMatcher.addURI(MusicProvider.AUTHORITY, "musics/#", MUSIC_ID);
+
+        sPersonsProjectionMap = new HashMap<String, String>();
+        sPersonsProjectionMap.put(MusicProvider.MusicColumns._ID, MusicProvider.MusicColumns._ID);
+        sPersonsProjectionMap.put(MusicProvider.MusicColumns.TITLE, MusicProvider.MusicColumns.TITLE);
+        sPersonsProjectionMap.put(MusicProvider.MusicColumns.URL, MusicProvider.MusicColumns.URL);
+        sPersonsProjectionMap.put(MusicProvider.MusicColumns.TYPE, MusicProvider.MusicColumns.TYPE);
+    }
 
     private MusicDatabaseHelper mOpenHelper;
 
@@ -38,22 +49,22 @@ public class MusicContentProvider extends ContentProvider {
 
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
-            String sortOrder) {
+                        String sortOrder) {
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(MusicProvider.MusicColumns.TABLE_NAME);
 
         switch (sUriMatcher.match(uri)) {
-        case TABLE:
-            qb.setProjectionMap(sPersonsProjectionMap);
-            break;
+            case TABLE:
+                qb.setProjectionMap(sPersonsProjectionMap);
+                break;
 
-        case MUSIC_ID:
-            qb.setProjectionMap(sPersonsProjectionMap);
-            qb.appendWhere(MusicProvider.MusicColumns._ID + "=" + uri.getPathSegments().get(1));
-            break;
+            case MUSIC_ID:
+                qb.setProjectionMap(sPersonsProjectionMap);
+                qb.appendWhere(MusicProvider.MusicColumns._ID + "=" + uri.getPathSegments().get(1));
+                break;
 
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
         }
 
         // If no sort order is specified use the default
@@ -76,12 +87,12 @@ public class MusicContentProvider extends ContentProvider {
     @Override
     public String getType(Uri uri) {
         switch (sUriMatcher.match(uri)) {
-        case TABLE:
-            return MusicProvider.CONTENT_TYPE;
-        case MUSIC_ID:
-            return MusicProvider.CONTENT_ITEM_TYPE;
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            case TABLE:
+                return MusicProvider.CONTENT_TYPE;
+            case MUSIC_ID:
+                return MusicProvider.CONTENT_ITEM_TYPE;
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
         }
     }
 
@@ -107,7 +118,7 @@ public class MusicContentProvider extends ContentProvider {
         if (values.containsKey(MusicProvider.MusicColumns.URL) == false) {
             values.put(MusicProvider.MusicColumns.URL, "");
         }
-        
+
         if (values.containsKey(MusicProvider.MusicColumns.TYPE) == false) {
             values.put(MusicProvider.MusicColumns.TYPE, 0);
         }
@@ -128,18 +139,18 @@ public class MusicContentProvider extends ContentProvider {
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         int count;
         switch (sUriMatcher.match(uri)) {
-        case TABLE:
-            count = db.delete(MusicProvider.MusicColumns.TABLE_NAME, where, whereArgs);
-            break;
+            case TABLE:
+                count = db.delete(MusicProvider.MusicColumns.TABLE_NAME, where, whereArgs);
+                break;
 
-        case MUSIC_ID:
-            String noteId = uri.getPathSegments().get(1);
-            count = db.delete(MusicProvider.MusicColumns.TABLE_NAME, MusicProvider.MusicColumns._ID + "=" + noteId
-                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-            break;
+            case MUSIC_ID:
+                String noteId = uri.getPathSegments().get(1);
+                count = db.delete(MusicProvider.MusicColumns.TABLE_NAME, MusicProvider.MusicColumns._ID + "=" + noteId
+                        + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
+                break;
 
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
         }
 
         getContext().getContentResolver().notifyChange(uri, null);
@@ -151,34 +162,21 @@ public class MusicContentProvider extends ContentProvider {
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         int count;
         switch (sUriMatcher.match(uri)) {
-        case TABLE:
-            count = db.update(MusicProvider.MusicColumns.TABLE_NAME, values, where, whereArgs);
-            break;
+            case TABLE:
+                count = db.update(MusicProvider.MusicColumns.TABLE_NAME, values, where, whereArgs);
+                break;
 
-        case MUSIC_ID:
-            String noteId = uri.getPathSegments().get(1);
-            count = db.update(MusicProvider.MusicColumns.TABLE_NAME, values, MusicProvider.MusicColumns._ID + "=" + noteId
-                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-            break;
+            case MUSIC_ID:
+                String noteId = uri.getPathSegments().get(1);
+                count = db.update(MusicProvider.MusicColumns.TABLE_NAME, values, MusicProvider.MusicColumns._ID + "=" + noteId
+                        + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
+                break;
 
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
         }
 
         getContext().getContentResolver().notifyChange(uri, null);
         return count;
-    }
-
-    static {
-        sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-        // 这个地方的musics要和MusicColumns.CONTENT_URI中最后面的一个Segment一致
-        sUriMatcher.addURI(MusicProvider.AUTHORITY, "musics", TABLE);
-        sUriMatcher.addURI(MusicProvider.AUTHORITY, "musics/#", MUSIC_ID);
-
-        sPersonsProjectionMap = new HashMap<String, String>();
-        sPersonsProjectionMap.put(MusicProvider.MusicColumns._ID, MusicProvider.MusicColumns._ID);
-        sPersonsProjectionMap.put(MusicProvider.MusicColumns.TITLE, MusicProvider.MusicColumns.TITLE);
-        sPersonsProjectionMap.put(MusicProvider.MusicColumns.URL, MusicProvider.MusicColumns.URL);
-        sPersonsProjectionMap.put(MusicProvider.MusicColumns.TYPE, MusicProvider.MusicColumns.TYPE);
     }
 }

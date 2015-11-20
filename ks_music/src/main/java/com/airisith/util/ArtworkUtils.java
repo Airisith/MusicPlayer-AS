@@ -1,12 +1,5 @@
 package com.airisith.util;
 
-import java.io.FileDescriptor;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-
-import com.airisith.ksmusic.R;
-
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
@@ -15,10 +8,17 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 
+import com.airisith.ksmusic.R;
+
+import java.io.FileDescriptor;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+
 /**
  * 获取歌曲图片的类
- * @author Administrator
  *
+ * @author Administrator
  */
 public class ArtworkUtils {
 
@@ -27,6 +27,7 @@ public class ArtworkUtils {
 
     /**
      * 获取图片
+     *
      * @param context
      * @param title
      * @param song_id
@@ -35,7 +36,7 @@ public class ArtworkUtils {
      * @return
      */
     public static Bitmap getArtwork(Context context, String title, long song_id, long album_id,
-            boolean allowdefault) {
+                                    boolean allowdefault) {
         if (album_id < 0) {
             if (song_id >= 0) {
                 Bitmap bm = getArtworkFromFile(context, song_id, -1);
