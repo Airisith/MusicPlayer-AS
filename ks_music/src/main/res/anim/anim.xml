@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <!-- 动画效果，起始和结束透明度，0-1.0 -->
+    <alpha
+        android:duration="10"
+        android:fromAlpha="0.5"
+        android:toAlpha="0.5" />
+
+</set>
