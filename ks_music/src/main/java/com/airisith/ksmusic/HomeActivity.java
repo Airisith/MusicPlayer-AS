@@ -35,6 +35,7 @@ import android.widget.Toast;
 
 import com.airisith.database.MusicListDatabase;
 import com.airisith.modle.MusicInfo;
+import com.airisith.util.AppGlobalValues;
 import com.airisith.util.BluToothConnect;
 import com.airisith.util.Constans;
 import com.airisith.util.MusicList;
@@ -49,6 +50,10 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
     private static final String TAG = "HomeActivity";
     private final String TAB_ID_MINE = "mine";
     private final String TAB_ID_LIB = "musicLib";
+
+    private Context gContex;
+    private AppGlobalValues appGlobalValues;
+
     // 返回键退出延时时间
     private long mExitTime;
     private TabHost tabHost;
@@ -63,7 +68,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
     private ImageView bOrder;
     private RelativeLayout bInfoLayout;
 
-    private Boolean turnTOback = true;
+    private Boolean isShowing = false; // activity是否可见
     private int musicPosition = 0; // 记录歌曲位置
     private int currentListId = 0; // 当前列表Id
     private Intent musicIntent; // 启动service的intent
@@ -73,7 +78,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
     private List<MusicInfo> downloadMusicLists = null; // 下载音乐列表
     private List<MusicInfo> currentMusicList = null; // 当前选择的音乐列表
     private HashMap<Integer, List<MusicInfo>> musicLists = null; // 将两个列表包装在map中
-    private int playMode = Constans.MODLE_ORDER; // 播放模式
+    private int cycleMode = Constans.MODLE_ORDER; // 播放模式
     private int playState = Constans.STATE_STOP;
 
     private MusicInfo currentMusicInfo = null;
@@ -89,10 +94,33 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
         Log.i(TAG, "onCreate");
-        // 绑定Service，绑定后就会调用mConnetion里的onServiceConnected方法
-        Intent intent = new Intent(this, MusicService.class);
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        gContex = getApplicationContext();
+        appGlobalValues = (AppGlobalValues)getApplication();
 
+        initViews();
+
+        // 获取播放状态
+        playState = appGlobalValues.getPlayState();
+
+        // 用户和下载音乐列表先设为空对象
+        userMusicLists = new ArrayList<MusicInfo>();
+        downloadMusicLists = new ArrayList<MusicInfo>();
+
+        // 加载本地音乐库，默认列表为本地列表
+        musicLists = new HashMap<Integer, List<MusicInfo>>();
+
+        // 创建Intent对象，准备启动MusicService
+        musicIntent = new Intent(getApplicationContext(), MusicService.class);
+        startService(musicIntent);
+
+        // 广播接收器，用于一首歌播放完成后继续播放下一首的动作
+        receiver = new MusicCompleteReceiver();
+        IntentFilter intentfFilter = new IntentFilter();
+        intentfFilter.addAction(Constans.ACTION_MUSIC_END);
+        HomeActivity.this.registerReceiver(receiver, intentfFilter);
+    }
+
+    private void initViews(){
         expandableListView = (ExpandableListView) findViewById(R.id.home_ExpandingListView);
         bcap = (ImageView) findViewById(R.id.homeb_cap);
         bTitle = (TextView) findViewById(R.id.homeb_title);
@@ -102,15 +130,6 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         bNext = (ImageView) findViewById(R.id.homeb_next);
         bOrder = (ImageView) findViewById(R.id.homeb_order);
         bInfoLayout = (RelativeLayout) findViewById(R.id.homeb_infoLayout);
-
-        try {
-            playState = getIntent().getIntExtra("SERVICE_STATE",
-                    Constans.STATE_STOP);
-        } catch (Exception e) {
-        }
-        // 先设为空对象
-        userMusicLists = new ArrayList<MusicInfo>();
-        downloadMusicLists = new ArrayList<MusicInfo>();
 
         // tab设置
         tabHost = (TabHost) findViewById(R.id.tabhost);
@@ -133,25 +152,11 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         updateTab(tabHost); // 初始化标签字体颜色
         tabHost.setOnTabChangedListener(this); // 选择监听器
 
-        // 加载本地音乐库，默认列表为本地列表
-        musicLists = new HashMap<Integer, List<MusicInfo>>();
-
-        // 创建Intent对象，准备启动MusicService
-        musicIntent = new Intent(getApplicationContext(), MusicService.class);
-        musicIntent.putExtra("Activity", Constans.ACTIVITY_HOME);
-
-        // 广播接收器，用于一首歌播放完成后继续播放下一首的动作
-        receiver = new MusicCompleteReceiver();
-        IntentFilter intentfFilter = new IntentFilter();
-        intentfFilter.addAction(Constans.ACTION_MUSIC_END);
-        HomeActivity.this.registerReceiver(receiver, intentfFilter);
-
         // 给底部按钮注册监听器
         bInfoLayout.setOnClickListener(new OnButtomMenuClickedListener());
         bPlay.setOnClickListener(new OnButtomMenuClickedListener());
         bNext.setOnClickListener(new OnButtomMenuClickedListener());
         bOrder.setOnClickListener(new OnButtomMenuClickedListener());
-
     }
 
     @Override
@@ -170,7 +175,6 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
     @Override
     protected void onPause() {
         Log.i(TAG, "onPause");
-        turnTOback = true;
         super.onPause();
     }
 
@@ -178,66 +182,73 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
     @Override
     protected void onStart() {
         Log.i(TAG, "onStart");
-        updataMusicList();
         super.onStart();
-        turnTOback = false;
-        try {
-            // 获取歌曲播放信息
-            int[] state = MusicInfo
-                    .getCurrentMusicInfo(getApplicationContext());
-            if (0 == state[0]) {
+
+        isShowing = true;
+        // 绑定Service，绑定后就会调用mConnetion里的onServiceConnected方法
+        Intent intent = new Intent(this, MusicService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+
+
+        updataMusicList();
+        // 获取歌曲播放信息
+        int[] state = MusicInfo
+                .getCurrentMusicInfo(getApplicationContext());
+        // 播放状态
+        switch (state[0]){
+            case Constans.TYPE_LOCAL:
                 currentMusicList = localMusicLists;
-                currentListId = 0;
-            } else if (1 == state[0]) {
+                currentListId = Constans.TYPE_USER;
+                break;
+            case Constans.TYPE_USER:
                 currentMusicList = userMusicLists;
-                currentListId = 1;
-            } else if (2 == state[0]) {
+                currentListId = Constans.TYPE_USER;
+                break;
+            case Constans.TYPE_DOWNLOAD:
                 currentMusicList = downloadMusicLists;
-                currentListId = 2;
-            }
-            playMode = state[1];
-            musicPosition = state[2];
-        } catch (Exception e) {
+                currentListId = Constans.TYPE_USER;
+                break;
         }
-        Log.i(TAG, "列表:" + currentMusicList.size() + "循环模式:" + playMode
-                + "歌曲位置:" + musicPosition);
-        try {
+
+        // 循环模式和位置
+        cycleMode = state[1];
+        musicPosition = state[2];
+        Log.i(TAG, "列表:" + currentMusicList.size() + "循环模式:" + cycleMode
+                + "歌曲位置:" + musicPosition + "是否正在播放" + playState +
+                "(1-STATE_PLAY, 2-STATE_PAUSE, 0-STATE-_STOP");
+
+        if ((null != currentMusicList) && (currentMusicList.size() > 0) && (musicPosition <currentMusicList.size())){
             currentMusicInfo = currentMusicList.get(musicPosition);
-            Log.i(TAG, "歌曲:" + currentMusicInfo.getAbbrTitle());
-        } catch (Exception e) {
-        }
-        try {
-            Log.i(TAG, "是否正在播放" + playState);
+            Log.i(TAG, "当前歌曲:" + currentMusicInfo.getAbbrTitle());
             bTitle.setText(currentMusicInfo.getAbbrTitle());
             bArtis.setText(currentMusicInfo.getArtist());
-            if (Constans.STATE_STOP == playState) {
-                bPlay.setImageResource(R.drawable.play);
-                bTime.setText("00:00-" + currentMusicInfo.getDurationStr());
-            } else if (Constans.STATE_PUASE == playState) {
-                bPlay.setImageResource(R.drawable.play);
-                mService.updateTime(timeHandler, true);
-            } else {
-                mService.updateTime(timeHandler, true);
-                bPlay.setImageResource(R.drawable.puase);
-                bcap.setImageBitmap(currentMusicInfo.getAlbum_bitmap());
-                bTitle.setText(currentMusicInfo.getAbbrTitle());
-                bArtis.setText(currentMusicInfo.getAbbrArtist());
-            }
+            bcap.setImageBitmap(currentMusicInfo.getAlbum_bitmap());
 
-        } catch (Exception e) {
+            switch (playState){
+                case Constans.STATE_STOP:
+                    bPlay.setImageResource(R.drawable.play);
+                    bTime.setText("00:00-" + currentMusicInfo.getDurationStr());
+                    break;
+                case Constans.STATE_PUASE:
+                    bPlay.setImageResource(R.drawable.play);
+                    mService.updateTime(timeHandler, true);
+                    break;
+                case Constans.STATE_PLAY:
+                    mService.updateTime(timeHandler, true);
+                    bPlay.setImageResource(R.drawable.puase);
+                    break;
+            }
         }
-        try {
-            IntentFilter intentfFilter = new IntentFilter();
-            intentfFilter.addAction(Constans.ACTION_MUSIC_END);
-            HomeActivity.this.registerReceiver(receiver, intentfFilter);
-        } catch (Exception e) {
-        }
+
+        IntentFilter intentfFilter = new IntentFilter();
+        intentfFilter.addAction(Constans.ACTION_MUSIC_END);
+        registerReceiver(receiver, intentfFilter);
     }
 
     @Override
     protected void onStop() {
         Log.i(TAG, "onStop");
-        turnTOback = true;
+        isShowing = false;
         super.onStop();
         try {
             mService.updateTime(timeHandler, false);
@@ -322,32 +333,46 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
      * @param playCommand 播放命令：play，puase，stop
      * @param position    歌曲位于列表中的位置
      * @param rate        播放的位置，整个歌曲时间定为100, 如果为负数，则表示继续从当前位置播放
-     * @param upTime      是否更新时间
      */
     private void MusicCommad(List<MusicInfo> musicInfos, int playCommand,
-                             int position, int rate, Boolean upTime) {
+                             int position, int rate) {
         if ((musicInfos != null)
                 && (Constans.ACTIVITY_CHANGED_CMD != playCommand)) {
             MusicInfo musicInfo = musicInfos.get(position);
             currentMusicInfo = musicInfo;
-            Log.i(TAG, "开始播放第" + position + "首歌");
-            Log.i(TAG, musicInfo.getUrl().toString());
-            // Intent intent = new Intent();
-            musicIntent.putExtra("url", musicInfo.getUrl());
-            musicIntent.putExtra("CMD", playCommand);
-            musicIntent.putExtra("rate", rate);
-            startService(musicIntent); // 启动服务
-            bTitle.setText(musicInfo.getAbbrTitle());
-            bArtis.setText(musicInfo.getArtist());
-            bPlay.setImageResource(R.drawable.puase);
-            bcap.setImageBitmap(musicInfo.getAlbum_bitmap());
-            if (false == turnTOback) {
-                mService.updateTime(timeHandler, upTime);
+
+            if (mBound) {
+                Log.i(TAG, "当前第" + position + "首:" + musicInfo.getUrl().toString());
+                mService.setPath(musicInfo.getUrl());
+                switch (playCommand){
+                    case Constans.PLAY_CMD:
+                        if(true == mService.play(rate)){
+                            bPlay.setImageResource(R.drawable.puase);
+                            playState = Constans.STATE_PLAY;
+                        }
+                        break;
+                    case Constans.PUASE_CMD:
+                        if(mService.pause()){
+                            bPlay.setImageResource(R.drawable.play);
+                            playState = Constans.STATE_PUASE;                     }
+                        break;
+                    case Constans.STOP_CMD:
+                        if(mService.stop()){
+                            bPlay.setImageResource(R.drawable.play);
+                            playState = Constans.STATE_STOP;
+                       }
+                        break;
+                }
             }
 
+            bTitle.setText(musicInfo.getAbbrTitle());
+            bArtis.setText(musicInfo.getArtist());
+            bcap.setImageBitmap(musicInfo.getAlbum_bitmap());
+            mService.updateTime(timeHandler, isShowing);
+
             MusicInfo.putCurrentMusicInfo(getApplicationContext(),
-                    currentListId, playMode, musicPosition);
-            Log.i(TAG, "保存歌曲信息：list,mode,position:" + currentListId + playMode
+                    currentListId, cycleMode, musicPosition);
+            Log.i(TAG, "保存歌曲信息：list,mode,position:" + currentListId + cycleMode
                     + musicPosition);
         }
     }
@@ -506,8 +531,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
                 Log.i(TAG, "选中downloadMusicLists");
             }
             musicPosition = childPosition;
-            MusicCommad(currentMusicList, Constans.PLAY_CMD, musicPosition, 0,
-                    true);
+            MusicCommad(currentMusicList, Constans.PLAY_CMD, musicPosition, 0);
             return false;
         }
     }
@@ -559,20 +583,18 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (Constans.MODLE_ORDER == playMode) {
+            if (Constans.MODLE_ORDER == cycleMode) {
                 if (musicPosition < currentMusicList.size() - 1) {
                     musicPosition = musicPosition + 1;
                 } else {
                     musicPosition = 0;
                 }
-            } else if (Constans.MODLE_RANDOM == playMode) {
+            } else if (Constans.MODLE_RANDOM == cycleMode) {
                 musicPosition = (int) (Math.random() * currentMusicList.size());
             } else {
 
             }
-            playState = Constans.STATE_PLAY;
-            MusicCommad(currentMusicList, Constans.PLAY_CMD, musicPosition, 0,
-                    true);
+            MusicCommad(currentMusicList, Constans.PLAY_CMD, musicPosition, 0);
         }
     }
 
@@ -589,23 +611,17 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
                 case R.id.homeb_play:
                     if (Constans.STATE_PLAY == playState) {
                         MusicCommad(currentMusicList, Constans.PUASE_CMD,
-                                musicPosition, 0, true);
-                        bPlay.setImageResource(R.drawable.play);
-                        playState = Constans.STATE_PUASE;
+                                musicPosition, 0);
                     } else if (Constans.STATE_PUASE == playState) {
                         MusicCommad(currentMusicList, Constans.PLAY_CMD,
-                                musicPosition, -1, true);
-                        bPlay.setImageResource(R.drawable.puase);
-                        playState = Constans.STATE_PLAY;
+                                musicPosition, -1);
                     } else {
                         MusicCommad(currentMusicList, Constans.PLAY_CMD,
-                                musicPosition, 0, true);
-                        bPlay.setImageResource(R.drawable.puase);
-                        playState = Constans.STATE_PLAY;
+                                musicPosition, 0);
                     }
                     break;
                 case R.id.homeb_next:
-                    if (Constans.MODLE_RANDOM == playMode) {
+                    if (Constans.MODLE_RANDOM == cycleMode) {
                         musicPosition = (int) (Math.random() * currentMusicList
                                 .size());
                     } else {
@@ -617,7 +633,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
                     }
                     playState = Constans.STATE_PLAY;
                     MusicCommad(currentMusicList, Constans.PLAY_CMD, musicPosition,
-                            0, true);
+                            0);
 
                     break;
                 case R.id.homeb_infoLayout:
@@ -627,14 +643,14 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
                     startActivity(intent);
                     break;
                 case R.id.homeb_order:
-                    if (Constans.MODLE_ORDER == playMode) {
-                        playMode = Constans.MODLE_RANDOM;
+                    if (Constans.MODLE_ORDER == cycleMode) {
+                        cycleMode = Constans.MODLE_RANDOM;
                         bOrder.setImageResource(R.drawable.random);
-                    } else if (Constans.MODLE_RANDOM == playMode) {
-                        playMode = Constans.MODLE_SINGLE;
+                    } else if (Constans.MODLE_RANDOM == cycleMode) {
+                        cycleMode = Constans.MODLE_SINGLE;
                         bOrder.setImageResource(R.drawable.single);
                     } else {
-                        playMode = Constans.MODLE_ORDER;
+                        cycleMode = Constans.MODLE_ORDER;
                         bOrder.setImageResource(R.drawable.order);
                     }
 

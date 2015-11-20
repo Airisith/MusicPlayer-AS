@@ -31,9 +31,9 @@ public class MusicInfo {
         SharedPreferences sp = context.getSharedPreferences(Constans.PREFERENCES_NAME_MUSIC_STATE, Context.MODE_APPEND);
         //存入数据
         Editor editor = sp.edit();
-        editor.putInt("MUSIC_LIST_ID", current_MusicList);
-        editor.putInt("CURRENT_MODE", current_mode);
-        editor.putInt("CURRENT_POSITION", current_positon);
+        editor.putInt(Constans.PREFERENCES_ITEM_LIST_TYPE, current_MusicList);
+        editor.putInt(Constans.PREFERENCES_ITEM_CYCLE_MODLE, current_mode);
+        editor.putInt(Constans.PREFERENCES_ITEM_CURRENT_POSITION, current_positon);
         editor.commit();
     }
 

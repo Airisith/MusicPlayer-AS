@@ -35,7 +35,9 @@ public class Constans {
 
     // 定义两种类型：本地音乐类型，网络音乐类型
     public final static int TYPE_LOCAL = 0x100;
-    public final static int TYPE_NET = 0x101;
+    public final static int TYPE_USER = 0x101;
+    public final static int TYPE_DOWNLOAD = 0X102;
+    public final static int TYPE_NET = 0X103;
 
     // intent参数
     public final static String INTENT_NAME_URL = "com.ksmusic.url"; // 歌曲url

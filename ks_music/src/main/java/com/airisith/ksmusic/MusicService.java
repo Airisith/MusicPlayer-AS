@@ -18,6 +18,7 @@ import android.util.Log;
 
 import com.airisith.lyric.LrcContent;
 import com.airisith.lyric.LrcProcess;
+import com.airisith.modle.MusicInfo;
 import com.airisith.util.AppGlobalValues;
 import com.airisith.util.Constans;
 
@@ -29,6 +30,7 @@ import java.util.TimerTask;
 @SuppressLint("NewApi")
 public class MusicService extends Service {
     private static String TAG = "MusicService";
+    private Context gContext;
 
     /**
      * 播放器
@@ -50,6 +52,7 @@ public class MusicService extends Service {
      * 全局变量
      */
     private AppGlobalValues appGlobalValues;
+    private int listSize = -1;
 
     /**
      * 其他flag值
@@ -198,27 +201,19 @@ public class MusicService extends Service {
     public void onCreate() {
         Log.i(TAG, "onCreate()");
         super.onCreate();
+        gContext = getApplicationContext();
         appGlobalValues = (AppGlobalValues) getApplication();
         lyricHandler = new Handler();
         upTimeTimer = new Timer(true);
 
         // 歌曲结束发送广播
-        mediaPlayer.setOnCompletionListener(new OnCompletionListener() {
-            @Override
-            public void onCompletion(MediaPlayer mp) {
-                Intent intent = new Intent();
-                intent.setAction(Constans.ACTION_MUSIC_END);
-                sendBroadcast(intent);
-            }
-        });
-
+        mediaPlayer.setOnCompletionListener(completionListener);
         // 歌曲准备就绪监听器
         mediaPlayer.setOnPreparedListener(onPreparedListener);
 
         TelephonyManager telManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE); // 获取系统服务
         telManager.listen(new MobliePhoneStateListener(),
                 PhoneStateListener.LISTEN_CALL_STATE);
-
     }
 
     @Override
@@ -251,7 +246,7 @@ public class MusicService extends Service {
      * 设置歌曲地址
      * @param url ：歌曲路径
      */
-    private void setPath(String url){
+    public void setPath(String url){
         this.path = url;
     }
 
@@ -260,7 +255,7 @@ public class MusicService extends Service {
      *
      * @param position
      */
-    private void play(int position) {
+    public boolean play(int position) {
         try {
             Log.i(TAG, "Music play()");
             mediaPlayer.reset();// 把各项参数恢复到初始状态
@@ -269,32 +264,51 @@ public class MusicService extends Service {
             mediaPlayer.prepare(); // 进行缓冲
             onPreparedListener.setPosition(position);
             appGlobalValues.setPlayState(Constans.STATE_PLAY);
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
 
     /**
      * 暂停音乐
+     * @return 是否暂停成功
      */
-    private void pause() {
+    public boolean pause() {
         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-            Log.i(TAG, "Music pause()");
-            appGlobalValues.setCurrentPosition(mediaPlayer.getCurrentPosition());
-            mediaPlayer.pause();
-            appGlobalValues.setPlayState(Constans.STATE_PUASE);
+            try {
+                Log.i(TAG, "Music pause()");
+                appGlobalValues.setCurrentPosition(mediaPlayer.getCurrentPosition());
+                mediaPlayer.pause();
+                appGlobalValues.setPlayState(Constans.STATE_PUASE);
+                return true;
+            }catch (Exception e){
+                e.printStackTrace();
+                return false;
+            }
+        } else {
+            return false;
         }
     }
 
     /**
      * 停止音乐
      */
-    private void stop() {
+    public boolean stop() {
         if (mediaPlayer != null) {
             Log.i(TAG, "Music stop()");
-            mediaPlayer.stop();
-            appGlobalValues.setPlayState(Constans.STATE_STOP);
-            appGlobalValues.setCurrentPosition(0);
+            try {
+                mediaPlayer.stop();
+                appGlobalValues.setPlayState(Constans.STATE_STOP);
+                appGlobalValues.setCurrentPosition(0);
+                return true;
+            }catch (Exception e){
+                e.printStackTrace();
+                return false;
+            }
+        } else {
+            return false;
         }
     }
 
@@ -370,6 +384,36 @@ public class MusicService extends Service {
         }
     }
 
+    private OnCompletionListener completionListener = new OnCompletionListener() {
+        @Override
+        public void onCompletion(MediaPlayer mediaPlayer) {
+            int[] currentInfo =  MusicInfo.getCurrentMusicInfo(gContext);
+            int currentList = currentInfo[0];
+            int cycleMode = currentInfo[1];
+            int currentPositon = currentInfo[2];
+            switch (cycleMode){
+                case Constans.MODLE_ORDER:
+                    if (currentPositon < listSize - 1) {
+                        currentPositon = currentPositon + 1;
+                    } else {
+                        currentPositon = 0;
+                    }
+                    break;
+                case Constans.MODLE_RANDOM:
+                    currentPositon = (int) (Math.random() * listSize);
+                    break;
+                case Constans.MODLE_SINGLE:
+
+                    break;
+            }
+
+            Intent intent = new Intent();
+            intent.setAction(Constans.ACTION_MUSIC_END);
+            sendBroadcast(intent);
+
+        }
+    };
+
     /**
      * 电话监听器类
      *
@@ -398,4 +442,7 @@ public class MusicService extends Service {
         }
     }
 
+    private void setListSize(int listSize){
+        this.listSize = listSize;
+    }
 }
