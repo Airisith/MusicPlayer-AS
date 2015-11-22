@@ -43,6 +43,7 @@ import com.airisith.util.MusicList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("unused")
 public class HomeActivity extends Activity implements OnTabChangeListener {
@@ -113,6 +114,12 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         musicIntent = new Intent(getApplicationContext(), MusicService.class);
         startService(musicIntent);
 
+        // 设置列表点击监听器
+        expandableListView
+                .setOnChildClickListener(new MusicListItemClickListener());
+        expandableListView
+                .setOnItemLongClickListener(new onItemLongclichedListener());
+
         // 广播接收器，用于一首歌播放完成后继续播放下一首的动作
         receiver = new MusicCompleteReceiver();
         IntentFilter intentfFilter = new IntentFilter();
@@ -157,6 +164,8 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         bPlay.setOnClickListener(new OnButtomMenuClickedListener());
         bNext.setOnClickListener(new OnButtomMenuClickedListener());
         bOrder.setOnClickListener(new OnButtomMenuClickedListener());
+
+        groupArray = new ArrayList<String>();
     }
 
     @Override
@@ -165,7 +174,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         try {
             mService.updateTime(timeHandler, false);
             // 停止接收广播
-            HomeActivity.this.unregisterReceiver(receiver);
+            unregisterReceiver(receiver);
             stopService(musicIntent);
         } catch (Exception e) {
         }
@@ -213,9 +222,11 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         // 循环模式和位置
         cycleMode = state[1];
         musicPosition = state[2];
-        Log.i(TAG, "列表:" + currentMusicList.size() + "循环模式:" + cycleMode
-                + "歌曲位置:" + musicPosition + "是否正在播放" + playState +
-                "(1-STATE_PLAY, 2-STATE_PAUSE, 0-STATE-_STOP");
+        if (null != currentMusicList) {
+            Log.i(TAG, "列表:" + currentMusicList.size() + "循环模式:" + cycleMode
+                    + "歌曲位置:" + musicPosition + "是否正在播放" + playState +
+                    "(1-STATE_PLAY, 2-STATE_PAUSE, 0-STATE-_STOP");
+        }
 
         if ((null != currentMusicList) && (currentMusicList.size() > 0) && (musicPosition <currentMusicList.size())){
             currentMusicInfo = currentMusicList.get(musicPosition);
@@ -249,11 +260,14 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
     protected void onStop() {
         Log.i(TAG, "onStop");
         isShowing = false;
-        super.onStop();
         try {
             mService.updateTime(timeHandler, false);
         } catch (Exception e) {
         }
+        if (mBound){
+            unbindService(mConnection);
+        }
+        super.onStop();
     }
 
     @Override
@@ -336,7 +350,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
      */
     private void MusicCommad(List<MusicInfo> musicInfos, int playCommand,
                              int position, int rate) {
-        if ((musicInfos != null)
+        if ((musicInfos != null && 0 != musicInfos.size())
                 && (Constans.ACTIVITY_CHANGED_CMD != playCommand)) {
             MusicInfo musicInfo = musicInfos.get(position);
             currentMusicInfo = musicInfo;
@@ -423,30 +437,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
      * 刷新歌曲列表
      */
     private void updataMusicList() {
-        localMusicLists = MusicList.getLocaMusicInfos(getApplicationContext());
-        userMusicLists = MusicList
-                .getMusicsFromeProvider(getApplicationContext());
-        currentMusicList = localMusicLists;
-        currentListId = 0;
-        musicLists.put(0, localMusicLists);
-        musicLists.put(1, userMusicLists);
-        musicLists.put(2, downloadMusicLists);
-        // expandableListView设置
-        expandableListView.setGroupIndicator(null); // 设置 属性 GroupIndicator
-        // 去掉默认向下的箭头
-        expandableListView.setCacheColorHint(0); // 设置拖动列表的时候防止出现黑色背景
-        groupArray = new ArrayList<String>();
-        groupArray.add(">本地列表" + "(" + localMusicLists.size() + ")");
-        groupArray.add(">我的收藏" + "(" + userMusicLists.size() + ")");
-        groupArray.add(">下载歌曲" + "(" + downloadMusicLists.size() + ")");
-
-        // 将音乐加载到列表,并设置监听器
-        MusicList.setListAdpter(getApplicationContext(), expandableListView,
-                musicLists, groupArray);
-        expandableListView
-                .setOnChildClickListener(new MusicListItemClickListener());
-        expandableListView
-                .setOnItemLongClickListener(new onItemLongclichedListener());
+        MusicList.getLocalist(getApplicationContext(), listLoadCompleteHandler);
     }
 
     /**
@@ -486,7 +477,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
      *
      * @param position
      */
-    private void luserListDialog(final int position) {
+    private void userListDialog(final int position) {
         AlertDialog.Builder builder = new Builder(HomeActivity.this);
         builder.setPositiveButton("移除", new AlertDialog.OnClickListener() {
             @Override
@@ -558,7 +549,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
                         localListDialog(childPos);
                         break;
                     case 1: //第二个列表，收藏列表
-                        luserListDialog(childPos);
+                        userListDialog(childPos);
                         break;
                     case 2: //第三个列表，下载列表
 
@@ -584,6 +575,9 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (Constans.MODLE_ORDER == cycleMode) {
+                if (null == currentMusicList || 0 ==currentMusicList.size()){
+                    return;
+                }
                 if (musicPosition < currentMusicList.size() - 1) {
                     musicPosition = musicPosition + 1;
                 } else {
@@ -675,5 +669,39 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
             }
         }
 
+    };
+
+
+    private Handler listLoadCompleteHandler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            Log.i(TAG, "音乐加载完毕");
+
+            Map<String, List<MusicInfo>> listMap = (Map<String, List<MusicInfo>>)msg.obj;
+
+            localMusicLists = listMap.get(MusicList.KEY_LIST_LOCAL);
+            userMusicLists = listMap.get(MusicList.KEY_LIST_PROVIDER);
+
+            currentMusicList = localMusicLists;
+            appGlobalValues.setCurrentList(localMusicLists);
+            currentListId = 0;
+
+            musicLists.put(0, localMusicLists);
+            musicLists.put(1, userMusicLists);
+            musicLists.put(2, downloadMusicLists);
+
+            // expandableListView设置
+            expandableListView.setGroupIndicator(null); // 设置 属性 GroupIndicator
+            // 去掉默认向下的箭头
+            expandableListView.setCacheColorHint(0); // 设置拖动列表的时候防止出现黑色背景
+            // 此处顺序需要和List中顺序一样
+            groupArray.add(">本地列表" + "(" + localMusicLists.size() + ")");
+            groupArray.add(">我的收藏" + "(" + userMusicLists.size() + ")");
+            groupArray.add(">下载歌曲" + "(" + downloadMusicLists.size() + ")");
+            // 将音乐加载到列表,并设置监听器
+            MusicList.setListAdpter(getApplicationContext(), expandableListView,
+                    musicLists, groupArray);
+        }
     };
 }

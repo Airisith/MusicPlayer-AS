@@ -17,7 +17,6 @@ import android.os.IBinder;
 import android.os.Message;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -37,10 +36,9 @@ import android.widget.TextView;
 import com.airisith.database.MusicListDatabase;
 import com.airisith.lyric.LrcView;
 import com.airisith.modle.MusicInfo;
+import com.airisith.util.AppGlobalValues;
 import com.airisith.util.Constans;
-import com.airisith.util.MusicList;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class MusicView extends Activity {
@@ -50,10 +48,7 @@ public class MusicView extends Activity {
     private int musicPosition = 0;
     private int playState = Constans.STATE_STOP;
     private int playMode = Constans.MODLE_ORDER;
-    private List<MusicInfo> localMusicLists = null;
     private List<MusicInfo> currentMusicList = null;
-    private List<MusicInfo> userMusicLists = null;
-    private List<MusicInfo> downloadMusicLists = null;
     private Intent musicIntent = null;
     private MusicInfo currentMusicInfo = null;
     private boolean turnTOback = false;
@@ -79,10 +74,14 @@ public class MusicView extends Activity {
 
     private int currentListId = 0;
 
+    private AppGlobalValues appGlobalValues; // 全局变量
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_music);
+
+        appGlobalValues = (AppGlobalValues)getApplication();
 
         topBackLayout = (RelativeLayout) findViewById(R.id.musicTop_backLayout);
         likeTextView = (TextView) findViewById(R.id.music_like);
@@ -108,18 +107,20 @@ public class MusicView extends Activity {
         }
 
         // 获取音乐列表
-        localMusicLists = MusicList.getLocaMusicInfos(getApplicationContext());
-        userMusicLists = MusicList.getMusicsFromeProvider(getApplicationContext());
-        downloadMusicLists = new ArrayList<MusicInfo>();
-        if (0 == currentListId) {
-            currentMusicList = localMusicLists;
-            Log.w(TAG, "当前list-localMusicLists");
-        } else if (1 == currentListId) {
-            currentMusicList = userMusicLists;
-            Log.w(TAG, "当前list-userMusicLists");
-        } else if (2 == currentListId) {
-            currentMusicList = downloadMusicLists;
-            Log.w(TAG, "当前list-downloadMusicLists");
+        currentMusicList = appGlobalValues.getCurrentList();
+        switch (currentListId){
+            case Constans.TYPE_LOCAL:
+                Log.i(TAG, "当前列表-localMusicLists");
+                break;
+            case Constans.TYPE_USER:
+                Log.i(TAG, "当前列表-userMusicLists");
+                break;
+            case Constans.TYPE_DOWNLOAD:
+                Log.i(TAG, "当前列表-downloadMusicLists");
+                break;
+            case Constans.TYPE_NET:
+                Log.i(TAG, "当前列表-lonetMusicLists");
+                break;
         }
 
         // 广播接收器，用于一首歌播放完成后继续播放下一首的动作
@@ -192,16 +193,7 @@ public class MusicView extends Activity {
             // 获取歌曲播放信息
             int[] state = MusicInfo
                     .getCurrentMusicInfo(getApplicationContext());
-            if (0 == state[0]) {
-                currentMusicList = localMusicLists;
-                currentListId = 0;
-            } else if (1 == state[0]) {
-                currentMusicList = userMusicLists;
-                currentListId = 1;
-            } else if (2 == currentListId) {
-                currentMusicList = downloadMusicLists;
-                currentListId = 2;
-            }
+            currentMusicList = appGlobalValues.getCurrentList();
             playMode = state[1];
             musicPosition = state[2];
         } catch (Exception e) {
@@ -256,6 +248,10 @@ public class MusicView extends Activity {
             mService.updateTime(timeHandler, false);
         } catch (Exception e) {
         }
+        if (mBound){
+            unbindService(mConnection);
+        }
+        unregisterReceiver(receiver); // 停止接收广播，转由HomeActivity接收
         sendBroadcast(new Intent(Constans.ACTION_LYRIC_START));
         super.onStop();
     }
@@ -312,37 +308,6 @@ public class MusicView extends Activity {
             Log.w(TAG, "保存歌曲信息：list,mode,position:" + currentListId + playMode
                     + musicPosition);
         }
-    }
-
-    /**
-     * 屏蔽返回键原来的功能，以免程序异常退出出错
-     */
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_HOME:
-                Log.w(TAG, "KEYCODE_HOME");
-                return true;
-            case KeyEvent.KEYCODE_BACK:
-                Log.w(TAG, "KEYCODE_BACK");
-                Intent intent = new Intent(getApplicationContext(),
-                        HomeActivity.class);
-                intent.putExtra("SERVICE_STATE", playState);
-                unregisterReceiver(receiver); // 停止接收广播，转由HomeActivity接收
-                startActivity(intent);
-                return true;
-            case KeyEvent.KEYCODE_CALL:
-                Log.w(TAG, "KEYCODE_CALL");
-                return true;
-            case KeyEvent.KEYCODE_SYM:
-                Log.w(TAG, "KEYCODE_SYM");
-                return true;
-            case KeyEvent.KEYCODE_STAR:
-                Log.w(TAG, "KEYCODE_STAR");
-                return true;
-        }
-        Log.w(TAG, "return super.onKeyDown(keyCode, event);");
-        return super.onKeyDown(keyCode, event);
     }
 
     /**
@@ -494,7 +459,9 @@ public class MusicView extends Activity {
                     break;
                 case R.id.music_like:
                     MusicListDatabase.insertMusic(getApplicationContext(), currentMusicInfo);
-                    userMusicLists = MusicList.getMusicsFromeProvider(getApplicationContext());
+                    if (Constans.TYPE_USER == currentListId){
+                        // 重新加载user列表
+                    }
                     break;
                 case R.id.music_menu:
                     getMusicInfoDialog();

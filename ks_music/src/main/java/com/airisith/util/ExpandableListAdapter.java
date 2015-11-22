@@ -100,6 +100,9 @@ public class ExpandableListAdapter extends BaseExpandableListAdapter {
 
     @Override
     public int getGroupCount() {
+        if (null == groupMusicLists){
+            return 0;
+        }
         return groupMusicLists.size();
     }
 

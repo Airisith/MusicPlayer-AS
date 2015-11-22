@@ -3,6 +3,7 @@ package com.airisith.util;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.os.Message;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.ExpandableListView;
@@ -15,17 +16,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class MusicList {
 
     private static String TAG = "MusicList";
+
+    public final static String KEY_LIST_LOCAL = "LIST_LOCAL";
+    public final static String KEY_LIST_PROVIDER = "LIST_PROVIDER";
 
     /**
      * 用于从数据库中查询歌曲的信息，保存在List当中
      *
      * @return
      */
-    public static List<MusicInfo> getLocaMusicInfos(Context context) {
+    private static List<MusicInfo> getLocaMusicInfos(Context context) {
         Cursor cursor = context.getContentResolver().query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, null, null, null,
                 MediaStore.Audio.Media.DEFAULT_SORT_ORDER);
@@ -81,31 +86,37 @@ public class MusicList {
     }
 
     /**
-     * 填充列表
-     *
+     * 异步加载本地音乐
      * @param context
-     * @param expandableListView
-     * @param musicLists         所有音乐列表
-     * @param groupLists         列表名称
+     * @param loadCompletHandler 加载完毕的回调接口
      */
-    public static void setListAdpter(Context context, ExpandableListView expandableListView,
-                                     HashMap<Integer, List<MusicInfo>> musicLists, List<String> groupLists) {
-        ExpandableListAdapter listAdapter = new ExpandableListAdapter(context, groupLists, musicLists);
-        expandableListView.setAdapter(listAdapter);
-    }
+    public static void getLocalist(final Context context, final android.os.Handler loadCompletHandler){
+        new Thread(){
+            @Override
+            public void run() {
+                List<MusicInfo> listLocal = null;
+                List<MusicInfo> listProvider = null;
+                try {
+                    listLocal = getLocaMusicInfos(context);
+                }catch (Exception e){
+                    Log.e(TAG, "加载本地音乐列表出错");
+                    e.printStackTrace();
+                }
+                try {
+                    listProvider = getMusicsFromeProvider(context);
+                }catch (Exception e){
+                    Log.e(TAG, "加载用户音乐列表出错");
+                    e.printStackTrace();
+                }
+                Message msg = loadCompletHandler.obtainMessage();
+                Map<String, List<MusicInfo>> listMap = new HashMap<String, List<MusicInfo>>();
+                listMap.put(KEY_LIST_LOCAL, listLocal);
+                listMap.put(KEY_LIST_PROVIDER, listProvider);
+                msg.obj = listMap;
 
-    /**
-     * 向数据库中添加多首歌曲
-     *
-     * @param context
-     * @param musics
-     */
-    public static void addAllMusicsToDatabase(Context context, List<MusicInfo> musics) {
-        Iterator<MusicInfo> iterator = musics.iterator();
-        while (iterator.hasNext()) {
-            MusicInfo musicInfo = (MusicInfo) iterator.next();
-            MusicListDatabase.insertMusic(context, musicInfo);
-        }
+                loadCompletHandler.sendMessage(msg);
+            }
+        }.start();
     }
 
     /**
@@ -114,7 +125,7 @@ public class MusicList {
      * @param context
      * @return
      */
-    public static List<MusicInfo> getMusicsFromeProvider(Context context) {
+    private static List<MusicInfo> getMusicsFromeProvider(Context context) {
         List<MusicInfo> musics = MusicListDatabase.getMusics(context);
         Iterator<MusicInfo> iterator = musics.iterator();
         while (iterator.hasNext()) {
@@ -166,5 +177,33 @@ public class MusicList {
         }
 
         return musics;
+    }
+
+    /**
+     * 填充列表
+     *
+     * @param context
+     * @param expandableListView
+     * @param musicLists         所有音乐列表
+     * @param groupLists         列表名称
+     */
+    public static void setListAdpter(Context context, ExpandableListView expandableListView,
+                                     HashMap<Integer, List<MusicInfo>> musicLists, List<String> groupLists) {
+        ExpandableListAdapter listAdapter = new ExpandableListAdapter(context, groupLists, musicLists);
+        expandableListView.setAdapter(listAdapter);
+    }
+
+    /**
+     * 向数据库中添加多首歌曲
+     *
+     * @param context
+     * @param musics
+     */
+    public static void addAllMusicsToDatabase(Context context, List<MusicInfo> musics) {
+        Iterator<MusicInfo> iterator = musics.iterator();
+        while (iterator.hasNext()) {
+            MusicInfo musicInfo = (MusicInfo) iterator.next();
+            MusicListDatabase.insertMusic(context, musicInfo);
+        }
     }
 }

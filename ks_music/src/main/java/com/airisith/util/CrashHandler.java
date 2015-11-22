@@ -69,8 +69,7 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            StartApp(mContext);
-
+            //StartApp(mContext);
         }
     }
 
@@ -124,7 +123,7 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
             try {
                 // 获取sd卡的绝对路径
                 File dir = new File(Environment.getExternalStorageDirectory()
-                        .getAbsolutePath() + File.separator + "tpms_crash");
+                        .getAbsolutePath() + File.separator + "ksmusic_crash");
                 if (!dir.exists())
                     dir.mkdirs();
                 File file = new File(dir + "/" + fileName);

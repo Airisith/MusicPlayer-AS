@@ -10,7 +10,7 @@ import com.airisith.util.AppGlobalValues;
 
 public class Splash extends Activity {
 
-    private final int SPLASH_DISPLAY_LENGHT = 3000; //延迟三秒
+    private final int SPLASH_DISPLAY_LENGHT = 2000; //延迟启动
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

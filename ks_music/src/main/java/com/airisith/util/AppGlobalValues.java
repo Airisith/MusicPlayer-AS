@@ -2,6 +2,10 @@ package com.airisith.util;
 
 import android.app.Application;
 
+import com.airisith.modle.MusicInfo;
+
+import java.util.List;
+
 public class AppGlobalValues extends Application /*implements Thread.UncaughtExceptionHandler*/ {
     private final static String TAG = "AppGlobalValues";
     private boolean startanim = true; //开机动画
@@ -10,6 +14,7 @@ public class AppGlobalValues extends Application /*implements Thread.UncaughtExc
     private long currentPosition = 0; // 播放进度：ms
     private boolean flagAudioFocus = false; // 是否获取到了焦点
     private boolean silentMode = false; // 安静模式
+    private List<MusicInfo> currentList = null; // 音乐列表
 
     @Override
     public void onCreate() {
@@ -67,4 +72,11 @@ public class AppGlobalValues extends Application /*implements Thread.UncaughtExc
         this.silentMode = silentMode;
     }
 
+    public void setCurrentList(List<MusicInfo> list) {
+        this.currentList = list;
+    }
+
+    public List<MusicInfo> getCurrentList() {
+        return currentList;
+    }
 }
