@@ -233,7 +233,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
             Log.i(TAG, "当前歌曲:" + currentMusicInfo.getAbbrTitle());
             bTitle.setText(currentMusicInfo.getAbbrTitle());
             bArtis.setText(currentMusicInfo.getArtist());
-            bcap.setImageBitmap(currentMusicInfo.getAlbum_bitmap());
+            bcap.setImageBitmap(MusicList.getAlbum(gContex,currentMusicInfo));
 
             switch (playState){
                 case Constans.STATE_STOP:
@@ -381,7 +381,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
 
             bTitle.setText(musicInfo.getAbbrTitle());
             bArtis.setText(musicInfo.getArtist());
-            bcap.setImageBitmap(musicInfo.getAlbum_bitmap());
+            bcap.setImageBitmap(MusicList.getAlbum(gContex, musicInfo));
             mService.updateTime(timeHandler, isShowing);
 
             MusicInfo.putCurrentMusicInfo(getApplicationContext(),

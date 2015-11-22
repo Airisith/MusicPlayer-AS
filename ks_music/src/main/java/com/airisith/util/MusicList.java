@@ -66,15 +66,6 @@ public class MusicList {
                     musicInfo.setSize(size);
                     musicInfo.setUrl(url);
                     musicInfo.setType(Constans.TYPE_LOCAL);
-                    // 获取专辑图片
-                    try {
-                        Bitmap album_bitmap = ArtworkUtils.getArtwork(context, title,
-                                id, album_id, true);
-                        musicInfo.setAlbum_bitmap(album_bitmap);
-                    } catch (Exception e) {
-                        Log.e(TAG, e.toString());
-                    }
-
                     musicInfosInfos.add(musicInfo);
                 }
             }
@@ -160,14 +151,6 @@ public class MusicList {
                         musicInfo.setArtist(artist);
                         musicInfo.setDuration(duration);
                         musicInfo.setSize(size);
-                        // 获取专辑图片
-                        try {
-                            Bitmap album_bitmap = ArtworkUtils.getArtwork(context, title,
-                                    id, album_id, true);
-                            musicInfo.setAlbum_bitmap(album_bitmap);
-                        } catch (Exception e) {
-                            Log.e(TAG, e.toString());
-                        }
                     }
                 } else {
                     Log.e(TAG, "query failure!");
@@ -205,5 +188,17 @@ public class MusicList {
             MusicInfo musicInfo = (MusicInfo) iterator.next();
             MusicListDatabase.insertMusic(context, musicInfo);
         }
+    }
+
+    /**
+     * 获取歌曲的专辑图片
+     * @param context
+     * @param musicInfo
+     * @return
+     */
+    public static Bitmap getAlbum(Context context,MusicInfo musicInfo){
+
+        return ArtworkUtils.getArtwork(context, musicInfo.getTitle(),
+                musicInfo.getId(), musicInfo.getAlbum_id(), true);
     }
 }

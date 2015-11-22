@@ -3,7 +3,6 @@ package com.airisith.modle;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.graphics.Bitmap;
 
 import com.airisith.util.Constans;
 
@@ -16,7 +15,7 @@ public class MusicInfo {
     private long duration = 0; // 时长
     private long size = 0;
     private String url = null;
-    private Bitmap album_bitmap = null; // 图片
+//    private Bitmap album_bitmap = null; // 图片,保存会占用大量内存
     private int type = 0;
 
     /**
@@ -146,13 +145,13 @@ public class MusicInfo {
         this.album_id = album_id;
     }
 
-    public Bitmap getAlbum_bitmap() {
-        return album_bitmap;
-    }
-
-    public void setAlbum_bitmap(Bitmap album_bitmap) {
-        this.album_bitmap = album_bitmap;
-    }
+//    public Bitmap getAlbum_bitmap() {
+//        return album_bitmap;
+//    }
+//
+//    public void setAlbum_bitmap(Bitmap album_bitmap) {
+//        this.album_bitmap = album_bitmap;
+//    }
 
     public int getType() {
         return type;

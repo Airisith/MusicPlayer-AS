@@ -38,6 +38,7 @@ import com.airisith.lyric.LrcView;
 import com.airisith.modle.MusicInfo;
 import com.airisith.util.AppGlobalValues;
 import com.airisith.util.Constans;
+import com.airisith.util.MusicList;
 
 import java.util.List;
 
@@ -75,6 +76,7 @@ public class MusicView extends Activity {
     private int currentListId = 0;
 
     private AppGlobalValues appGlobalValues; // 全局变量
+    private Context gContext;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +84,7 @@ public class MusicView extends Activity {
         setContentView(R.layout.activity_music);
 
         appGlobalValues = (AppGlobalValues)getApplication();
+        gContext = getApplicationContext();
 
         topBackLayout = (RelativeLayout) findViewById(R.id.musicTop_backLayout);
         likeTextView = (TextView) findViewById(R.id.music_like);
@@ -98,7 +101,7 @@ public class MusicView extends Activity {
         lrcView = (LrcView) findViewById(R.id.music_lrcShowView);
         albumView = (ImageView) findViewById(R.id.music_ablum);
 
-        musicIntent = new Intent(getApplicationContext(), MusicService.class);
+        musicIntent = new Intent(gContext, MusicService.class);
         musicIntent.putExtra("Activity", "MusicView");
         try {
             playState = getIntent().getIntExtra("SERVICE_STATE",
@@ -183,7 +186,7 @@ public class MusicView extends Activity {
 
         try {
             int[] state = MusicInfo
-                    .getCurrentMusicInfo(getApplicationContext());
+                    .getCurrentMusicInfo(gContext);
             currentListId = state[0];
             playMode = state[1];
             musicPosition = state[2];
@@ -192,7 +195,7 @@ public class MusicView extends Activity {
         try {
             // 获取歌曲播放信息
             int[] state = MusicInfo
-                    .getCurrentMusicInfo(getApplicationContext());
+                    .getCurrentMusicInfo(gContext);
             currentMusicList = appGlobalValues.getCurrentList();
             playMode = state[1];
             musicPosition = state[2];
@@ -303,7 +306,7 @@ public class MusicView extends Activity {
                 mService.updateTime(timeHandler, upTime);
             }
 
-            MusicInfo.putCurrentMusicInfo(getApplicationContext(),
+            MusicInfo.putCurrentMusicInfo(gContext,
                     currentListId, playMode, musicPosition);
             Log.w(TAG, "保存歌曲信息：list,mode,position:" + currentListId + playMode
                     + musicPosition);
@@ -317,7 +320,7 @@ public class MusicView extends Activity {
      */
     private void upDataAlbum(Boolean visible) {
         if (visible) {
-            albumView.setImageBitmap(currentMusicInfo.getAlbum_bitmap());
+            albumView.setImageBitmap(MusicList.getAlbum(gContext, currentMusicInfo));
             albumView.setBackgroundResource(R.drawable.album_back);
             lrcView.setViewType(LrcView.SINGLE_TYPE);
         } else {
@@ -371,7 +374,7 @@ public class MusicView extends Activity {
         ListView musicListView = (ListView) layout
                 .findViewById(R.id.musc_musiclistview);
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(
-                getApplicationContext(), R.layout.music_musiclist_item, musics);
+                gContext, R.layout.music_musiclist_item, musics);
         musicListView.setAdapter(adapter);
         musicListView
                 .setOnItemClickListener(new OnMusiclistItemClickedListener(dialog));
@@ -451,14 +454,14 @@ public class MusicView extends Activity {
         public void onClick(View v) {
             switch (v.getId()) {
                 case R.id.musicTop_backLayout:
-                    Intent intent = new Intent(getApplicationContext(),
+                    Intent intent = new Intent(gContext,
                             HomeActivity.class);
                     intent.putExtra("SERVICE_STATE", playState);
                     unregisterReceiver(receiver); // 停止接收广播，转由HomeActivity接收
                     startActivity(intent);
                     break;
                 case R.id.music_like:
-                    MusicListDatabase.insertMusic(getApplicationContext(), currentMusicInfo);
+                    MusicListDatabase.insertMusic(gContext, currentMusicInfo);
                     if (Constans.TYPE_USER == currentListId){
                         // 重新加载user列表
                     }
