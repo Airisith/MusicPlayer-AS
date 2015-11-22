@@ -47,6 +47,8 @@ public class MusicService extends Service {
     private Handler lyricHandler; // 传递歌词显示的handler
     private Runnable upLyricRunnable; // 更新歌词的Runnable
     private Timer upTimeTimer;
+    private TimerTask upTimeTask;
+    private Handler upTimeHandler;
 
     /**
      * 全局变量
@@ -80,22 +82,30 @@ public class MusicService extends Service {
      */
     public void updateTime(final Handler handler,
                                   Boolean startTimer) {
+        upTimeHandler = handler;
         if (startTimer) {
-            upTimeTimer.schedule(new TimerTask() {
+            try {
+                upTimeTask.cancel();
+            }catch (Exception e){}
+            upTimeTask = new TimerTask() {
+                @Override
                 public void run() {
-                    Message message = handler.obtainMessage();
-                    int current = mediaPlayer.getCurrentPosition();
-                    int total = mediaPlayer.getDuration();
-                    int progress = current * 200 / total;
-                    String[] time = formatTime(current, total);
-                    message.obj = time;
-                    message.arg1 = progress;
-                    handler.sendMessage(message);
+                    if (null != upTimeHandler) {
+                        Message message = upTimeHandler.obtainMessage();
+                        int current = mediaPlayer.getCurrentPosition();
+                        int total = mediaPlayer.getDuration();
+                        int progress = current * 200 / total;
+                        String[] time = formatTime(current, total);
+                        message.obj = time;
+                        message.arg1 = progress;
+                        upTimeHandler.sendMessage(message);
+                    }
                 }
-            }, 1000, 1000);
+            };
+            upTimeTimer.schedule(upTimeTask, 1000, 1000);
         } else {
             try {
-                upTimeTimer.cancel();
+                upTimeTask.cancel();
             } catch (Exception e) {
             }
         }

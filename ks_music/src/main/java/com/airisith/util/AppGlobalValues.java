@@ -6,7 +6,7 @@ import com.airisith.modle.MusicInfo;
 
 import java.util.List;
 
-public class AppGlobalValues extends Application /*implements Thread.UncaughtExceptionHandler*/ {
+public class AppGlobalValues extends Application {
     private final static String TAG = "AppGlobalValues";
     private boolean startanim = true; //开机动画
     private int playState = Constans.STATE_STOP; // 播放状态
@@ -19,9 +19,10 @@ public class AppGlobalValues extends Application /*implements Thread.UncaughtExc
     @Override
     public void onCreate() {
         super.onCreate();
-        //Thread.setDefaultUncaughtExceptionHandler(this);
-        CrashHandler crashHandler = CrashHandler.getInstance();
-        crashHandler.init(this);
+
+        // crash抓取
+//        CrashHandler crashHandler = CrashHandler.getInstance();
+//        crashHandler.init(this);
     }
 
     public int getPlayState() {

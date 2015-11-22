@@ -109,6 +109,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
 
         // 加载本地音乐库，默认列表为本地列表
         musicLists = new HashMap<Integer, List<MusicInfo>>();
+        updataMusicList();
 
         // 创建Intent对象，准备启动MusicService
         musicIntent = new Intent(getApplicationContext(), MusicService.class);
@@ -198,8 +199,7 @@ public class HomeActivity extends Activity implements OnTabChangeListener {
         Intent intent = new Intent(this, MusicService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 
-
-        updataMusicList();
+        //updataMusicList();
         // 获取歌曲播放信息
         int[] state = MusicInfo
                 .getCurrentMusicInfo(getApplicationContext());
